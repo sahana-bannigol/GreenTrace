@@ -1,6 +1,6 @@
-# Verdant — Tokenized Green Bonds on XRP Ledger
+# Greentrace — Tokenized Green Bonds on XRP Ledger
 
-**Verdant** is a hackathon MVP that tokenizes green bonds as on-chain assets using XRPL's Multi-Purpose Token (MPT) standard. Investors must hold a KYC/ESG credential (XLS-70) before they can buy. Settlement is atomic via XRP escrow + crypto-condition — the entire bond purchase completes on-chain in ~4 seconds.
+**Greentrace** is a hackathon MVP that tokenizes green bonds as on-chain assets using XRPL's Multi-Purpose Token (MPT) standard. Investors must hold a KYC/ESG credential (XLS-70) before they can buy. Settlement is atomic via XRP escrow + crypto-condition — the entire bond purchase completes on-chain in ~4 seconds.
 
 Built for the **Ripple Treasury Hackathon 2026** on XRPL Devnet.
 
@@ -57,7 +57,7 @@ Local state lives in two JSON files (`bonds_db.json`, `verifier_wallet.json`). A
 ## 2. Project Structure
 
 ```
-verdant/
+greentrace/
 ├── app.py                  # Flask backend — all routes and API endpoints
 ├── xrpl_service.py         # XRPL service layer — every ledger interaction
 ├── bonds_db.json           # Local bond registry (persisted across restarts)
@@ -65,7 +65,7 @@ verdant/
 ├── requirements.txt        # Python dependencies
 ├── static/
 │   ├── style.css           # All CSS (dark green theme)
-│   └── verdant.js          # Shared JS utilities (api(), toast(), etc.)
+│   └── greentrace.js          # Shared JS utilities (api(), toast(), etc.)
 └── templates/
     ├── base.html           # Nav, toast, shared layout
     ├── dashboard.html      # Portfolio overview + trade history
@@ -79,7 +79,7 @@ verdant/
 
 ## 3. XRPL Standards Used
 
-| Standard | What it does in Verdant |
+| Standard | What it does in Greentrace |
 |----------|------------------------|
 | **XLS-33 (MPT)** | Green bonds are minted as Multi-Purpose Tokens. `AssetScale=2` so 1 bond = 100 base units. Flags: `TF_MPT_CAN_ESCROW`, `TF_MPT_CAN_TRADE`, `TF_MPT_CAN_TRANSFER`. |
 | **XLS-70 (Credentials)** | KYC/ESG gate. KPMG verifier issues `CredentialCreate`, investor signs `CredentialAccept`. The buy function checks `lsfAccepted` (flag `0x00010000`) on-chain before any transaction is submitted. |
@@ -128,7 +128,7 @@ Function: `issue_green_bond(issuer_seed, bond_data)`
    ```python
    onchain_meta = {
        "ticker": ..., "name": ..., "asset_class": "rwa",
-       "icon": "https://verdant.finance/icon.png",
+       "icon": "https://greentrace.finance/icon.png",
        "issuer_name": ...,
        "green": { "isin", "coupon", "maturity", "use_of_proceeds",
                   "frameworks", "icma_pass", "eu_taxonomy_pass",
@@ -181,7 +181,7 @@ def issue_and_accept_credential(verifier_seed, buyer_seed) -> dict:
     create_tx = CredentialCreate(
         account=verifier_wallet.classic_address,
         subject=buyer_wallet.classic_address,
-        credential_type=CREDENTIAL_TYPE_HEX,   # hex("VERDANT_GREEN_BOND")
+        credential_type=CREDENTIAL_TYPE_HEX,   # hex("GREENTRACE_GREEN_BOND")
         uri=CREDENTIAL_URI_HEX,                # JSON metadata hex-encoded
     )
     submit_and_wait(create_tx, client, verifier_wallet)
@@ -368,7 +368,7 @@ The Flask `/api/wallet/<address>/portfolio` endpoint enriches this raw data by j
 
 ## 6. Frontend Architecture
 
-### Shared utilities (`verdant.js`)
+### Shared utilities (`greentrace.js`)
 
 ```javascript
 // All API calls go through this helper. Throws on success:false.
@@ -584,7 +584,7 @@ escrow_sequence = (
 ### Install
 
 ```bash
-cd verdant
+cd greentrace
 pip install -r requirements.txt
 ```
 
@@ -622,7 +622,7 @@ TESTNET_URL      = "https://s.devnet.rippletest.net:51234"
 TESTNET_EXPLORER = "https://devnet.xrpl.org"
 
 # XLS-70 credential identifier (hex-encoded UTF-8)
-CREDENTIAL_TYPE_HEX = text_to_hex("VERDANT_GREEN_BOND")
+CREDENTIAL_TYPE_HEX = text_to_hex("GREENTRACE_GREEN_BOND")
 # = "5645524441....." (ASCII hex)
 
 # Credential URI metadata (hex-encoded JSON)
@@ -640,4 +640,4 @@ The `lsfAccepted` flag value for XLS-70 credential objects: `0x00010000` (decima
 
 ---
 
-*Verdant — Ripple Treasury Hackathon 2026*
+*Greentrace — Ripple Treasury Hackathon 2026*
