@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}GreenTrace{% endblock %} · Tokenized Green Bonds on XRPL</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+  <nav class="nav">
+    <a href="/" class="nav-brand">
+      <span class="nav-logo">⬡</span>
+      <span class="nav-name">GreenTrace</span>
+      <span class="nav-tag">XRPL · Green Bonds</span>
+    </a>
+    <div class="nav-links">
+      <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">Dashboard</a>
+      <a href="/issuer" class="nav-link {% if request.path == '/issuer' %}active{% endif %}">Issue Bond</a>
+      <a href="/marketplace" class="nav-link {% if request.path == '/marketplace' %}active{% endif %}">Marketplace</a>
+    </div>
+    <div class="nav-badge">
+      <span class="dot-green"></span> XRPL Devnet
+    </div>
+  </nav>
+
+  <main class="main">
+    {% block content %}{% endblock %}
+  </main>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="{{ url_for('static', filename='verdant.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

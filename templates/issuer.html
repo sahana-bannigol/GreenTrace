@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+{% block title %}Issue Bond{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Issue Green Bond</h1>
+    <p class="page-sub">Mint a tokenized green bond as an MPT on the XRP Ledger.</p>
+  </div>
+</div>
+
+<div class="two-col">
+  <!-- Left: Wallet -->
+  <div>
+    <div class="card">
+      <div class="card-title">Step 1 — Issuer Wallet</div>
+      <p class="muted" style="margin-bottom:1rem">Generate a testnet wallet funded with free XRP. Save the seed — you'll need it to issue bonds.</p>
+
+      <button class="btn btn-primary full-width" id="btnGenWallet" onclick="generateIssuerWallet()">
+        Generate Issuer Wallet
+      </button>
+
+      <div id="walletResult" class="wallet-box hidden">
+        <div class="wallet-row">
+          <span class="wallet-label">ADDRESS</span>
+          <span class="wallet-addr" id="walletAddress">—</span>
+        </div>
+        <div class="wallet-row">
+          <span class="wallet-label">SEED (keep secret)</span>
+          <span class="wallet-seed" id="walletSeed">—</span>
+        </div>
+        <div class="wallet-row">
+          <span class="wallet-label">BALANCE</span>
+          <span id="walletBalance">—</span>
+        </div>
+        <a id="walletExplorer" href="#" target="_blank" class="explorer-link">View on XRPL Explorer ↗</a>
+      </div>
+
+      <div class="divider">— OR enter existing seed —</div>
+      <label class="form-label">Existing Issuer Seed</label>
+      <input type="text" class="form-input" id="existingSeed" placeholder="s..." />
+    </div>
+  </div>
+
+  <!-- Right: Bond Form -->
+  <div>
+    <div class="card">
+      <div class="card-title">Step 2 — Bond Details</div>
+      <form id="bondForm" onsubmit="issueBond(event)">
+
+        <div class="form-row-2">
+          <div>
+            <label class="form-label">Bond Name *</label>
+            <input class="form-input" id="bondName" placeholder="EIB Climate Awareness Bond" required />
+          </div>
+          <div>
+            <label class="form-label">Ticker *</label>
+            <input class="form-input" id="bondTicker" placeholder="EIBCA" maxlength="8" required />
+          </div>
+        </div>
+
+        <div class="form-row-2">
+          <div>
+            <label class="form-label">Issuer Name *</label>
+            <input class="form-input" id="issuerName" placeholder="European Investment Bank" required />
+          </div>
+          <div>
+            <label class="form-label">ISIN</label>
+            <input class="form-input" id="bondISIN" placeholder="XS2783401129" />
+          </div>
+        </div>
+
+        <div class="form-row-3">
+          <div>
+            <label class="form-label">Coupon % *</label>
+            <input class="form-input" id="bondCoupon" type="number" step="0.01" placeholder="3.25" required />
+          </div>
+          <div>
+            <label class="form-label">Maturity Year *</label>
+            <input class="form-input" id="bondMaturity" placeholder="2034" required />
+          </div>
+          <div>
+            <label class="form-label">Total Bonds *</label>
+            <input class="form-input" id="totalBonds" type="number" placeholder="1000" required />
+          </div>
+        </div>
+
+        <div>
+          <label class="form-label">Use of Proceeds *</label>
+          <input class="form-input" id="useOfProceeds" placeholder="Renewable Energy / Solar Infrastructure" required />
+        </div>
+
+        <div>
+          <label class="form-label">Green Frameworks</label>
+          <div class="checkbox-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="fw_icma" checked />
+              ICMA Green Bond Principles
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="fw_eu" />
+              EU Taxonomy
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="fw_cbs" />
+              Climate Bonds Standard
+            </label>
+          </div>
+        </div>
+
+        <div id="verifyPreview" class="verify-preview hidden">
+          <span class="verify-label">PROJECTED VERIFY SCORE</span>
+          <span class="verify-num" id="previewScore">—</span>
+        </div>
+
+        <button type="submit" class="btn btn-primary full-width" id="btnIssueBond">
+          🌿 Issue Bond on XRPL
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Result -->
+<div id="issueResult" class="card hidden" style="margin-top:1.5rem">
+  <div class="card-header">
+    <span class="card-title">Bond Issued Successfully</span>
+    <span class="badge badge-green">● VERIFIED</span>
+  </div>
+  <div class="result-grid">
+    <div class="result-item">
+      <div class="result-label">MPT ISSUANCE ID</div>
+      <div class="result-value mono" id="resultMptId">—</div>
+    </div>
+    <div class="result-item">
+      <div class="result-label">TRANSACTION HASH</div>
+      <div class="result-value mono" id="resultTxHash">—</div>
+    </div>
+    <div class="result-item">
+      <div class="result-label">ISSUER ADDRESS</div>
+      <div class="result-value mono" id="resultIssuer">—</div>
+    </div>
+    <div class="result-item">
+      <div class="result-label">VERIFY SCORE</div>
+      <div class="result-value green" id="resultScore">—</div>
+    </div>
+  </div>
+  <div class="result-actions">
+    <a id="resultExplorer" href="#" target="_blank" class="btn btn-outline">View on XRPL Explorer ↗</a>
+    <a href="/marketplace" class="btn btn-primary">Go to Marketplace →</a>
+  </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+// Update verify preview on form change
+['fw_icma','fw_eu','fw_cbs','useOfProceeds','bondISIN'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('change', updatePreview);
+});
+
+function updatePreview() {
+  let score = 50;
+  if (document.getElementById('fw_icma').checked) score += 15;
+  if (document.getElementById('fw_eu').checked) score += 15;
+  if (document.getElementById('fw_cbs').checked) score += 10;
+  if (document.getElementById('useOfProceeds').value.trim()) score += 5;
+  if (document.getElementById('bondISIN').value.trim()) score += 5;
+  score = Math.min(score, 100);
+  document.getElementById('verifyPreview').classList.remove('hidden');
+  const el = document.getElementById('previewScore');
+  el.textContent = score;
+  el.className = 'verify-num ' + (score >= 90 ? 'score-high' : score >= 75 ? 'score-mid' : 'score-low');
+}
+updatePreview();
+
+async function generateIssuerWallet() {
+  const btn = document.getElementById('btnGenWallet');
+  btn.disabled = true;
+  btn.textContent = 'Generating wallet… (testnet faucet)';
+  try {
+    const res = await api('/api/wallet/create', 'POST', {});
+    const w = res.wallet;
+    document.getElementById('walletAddress').textContent = w.address;
+    document.getElementById('walletSeed').textContent = w.seed;
+    document.getElementById('walletBalance').textContent = w.balance_xrp + ' XRP';
+    document.getElementById('walletExplorer').href = w.explorer_url;
+    document.getElementById('walletResult').classList.remove('hidden');
+    localStorage.setItem('issuer_seed', w.seed);
+    localStorage.setItem('issuer_address', w.address);
+    toast('Wallet created! ' + w.balance_xrp + ' XRP funded.', 'success');
+    btn.textContent = '✓ Wallet Ready';
+  } catch(e) {
+    toast('Error: ' + e.message, 'error');
+    btn.disabled = false;
+    btn.textContent = 'Generate Issuer Wallet';
+  }
+}
+
+async function issueBond(e) {
+  e.preventDefault();
+  const seed = localStorage.getItem('issuer_seed') || document.getElementById('existingSeed').value.trim();
+  if (!seed) { toast('Generate or enter an issuer wallet first.', 'error'); return; }
+
+  const frameworks = [];
+  if (document.getElementById('fw_icma').checked) frameworks.push('ICMA Green Bond Principles');
+  if (document.getElementById('fw_eu').checked) frameworks.push('EU Taxonomy');
+  if (document.getElementById('fw_cbs').checked) frameworks.push('Climate Bonds Standard');
+
+  const btn = document.getElementById('btnIssueBond');
+  btn.disabled = true;
+  btn.textContent = 'Issuing on XRPL… (~10s)';
+
+  try {
+    const res = await api('/api/bond/issue', 'POST', {
+      issuer_seed: seed,
+      name: document.getElementById('bondName').value,
+      ticker: document.getElementById('bondTicker').value,
+      issuer_name: document.getElementById('issuerName').value,
+      isin: document.getElementById('bondISIN').value,
+      coupon: document.getElementById('bondCoupon').value,
+      maturity: document.getElementById('bondMaturity').value,
+      total_bonds: parseInt(document.getElementById('totalBonds').value),
+      use_of_proceeds: document.getElementById('useOfProceeds').value,
+      frameworks,
+    });
+
+    document.getElementById('resultMptId').textContent = res.mpt_issuance_id;
+    document.getElementById('resultTxHash').textContent = res.tx_hash;
+    document.getElementById('resultIssuer').textContent = res.issuer;
+    document.getElementById('resultScore').textContent = res.metadata.verify_score;
+    document.getElementById('resultExplorer').href = res.explorer_url;
+    document.getElementById('issueResult').classList.remove('hidden');
+    document.getElementById('issueResult').scrollIntoView({behavior:'smooth'});
+    toast('Green bond issued on XRPL! 🌿', 'success');
+    btn.textContent = '✓ Bond Issued';
+  } catch(e) {
+    toast('Error: ' + e.message, 'error');
+    btn.disabled = false;
+    btn.textContent = '🌿 Issue Bond on XRPL';
+  }
+}
+</script>
+{% endblock %}

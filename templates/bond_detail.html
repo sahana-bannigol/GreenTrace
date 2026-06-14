@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% block title %}{{ bond.metadata.get('name', 'Bond') }}{% endblock %}
+{% block content %}
+
+{% set meta = bond.metadata %}
+
+<div class="page-header">
+  <div>
+    <a href="/marketplace" class="back-link">← Marketplace</a>
+    <h1 class="page-title">{{ meta.get('name', '—') }}</h1>
+    <p class="page-sub mono">ISIN {{ meta.get('isin', '—') }} · XRPL {{ bond.mpt_issuance_id[:20] }}…</p>
+  </div>
+  <span class="verify-badge {% if bond.verify_score >= 90 %}verify-high{% elif bond.verify_score >= 75 %}verify-mid{% else %}verify-low{% endif %} verify-badge-lg">
+    ● VERIFIED
+  </span>
+</div>
+
+<div class="two-col">
+  <!-- Left: Bond info -->
+  <div>
+    <div class="card">
+      <div class="three-stat-row">
+        <div class="mini-stat">
+          <div class="mini-label">COUPON</div>
+          <div class="mini-val">{{ meta.get('coupon', '—') }}%</div>
+        </div>
+        <div class="mini-stat">
+          <div class="mini-label">MATURITY</div>
+          <div class="mini-val">{{ meta.get('maturity', '—') }}</div>
+        </div>
+        <div class="mini-stat">
+          <div class="mini-label">YIELD</div>
+          <div class="mini-val">{{ (meta.get('coupon','3.25') | float + 0.16) | round(2) }}%</div>
+        </div>
+      </div>
+
+      <div style="margin-top:1.5rem">
+        <div class="section-title">FRAMEWORK COMPLIANCE</div>
+        <div class="framework-list">
+          <div class="fw-row">
+            <span>ICMA Green Bond Principles</span>
+            <span class="{% if meta.get('icma_pass') %}fw-pass{% else %}fw-fail{% endif %}">
+              {% if meta.get('icma_pass') %}✓ Pass{% else %}✗ Fail{% endif %}
+            </span>
+          </div>
+          <div class="fw-row">
+            <span>EU Taxonomy alignment</span>
+            <span class="{% if meta.get('eu_taxonomy_pass') %}fw-pass{% else %}fw-fail{% endif %}">
+              {% if meta.get('eu_taxonomy_pass') %}✓ Pass{% else %}✗ Fail{% endif %}
+            </span>
+          </div>
+          <div class="fw-row">
+            <span>Climate Bonds Standard</span>
+            <span class="{% if meta.get('climate_bonds_pass') %}fw-pass{% else %}fw-fail{% endif %}">
+              {% if meta.get('climate_bonds_pass') %}✓ Pass{% else %}✗ Fail{% endif %}
+            </span>
+          </div>
+          <div class="fw-row">
+            <span>Use-of-proceeds tracking</span>
+            <span class="fw-pass">✓ Live</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:1.5rem">
+        <div class="section-title">USE OF PROCEEDS</div>
+        <p style="margin-top:0.5rem">{{ meta.get('use_of_proceeds', '—') }}</p>
+      </div>
+
+      <div style="margin-top:1.5rem">
+        <div class="section-title">ON-CHAIN SUPPLY (LIVE)</div>
+        <div class="supply-bar-wrap">
+          {% set out = live.get('outstanding_bonds', 0) %}
+          {% set max_b = live.get('maximum_bonds', bond.total_bonds) %}
+          {% set pct = ((out / max_b * 100) if max_b else 0) | round | int %}
+          <div class="supply-nums">
+            <span>{{ out | int }} issued</span>
+            <span>{{ max_b | int }} max</span>
+          </div>
+          <div class="supply-bar">
+            <div class="supply-fill" style="width:{{ pct }}%"></div>
+          </div>
+          <div class="supply-pct">{{ pct }}% distributed</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Trade history -->
+    {% if bond.trades %}
+    <div class="card" style="margin-top:1rem">
+      <div class="card-title" style="margin-bottom:1rem">Trade History</div>
+      {% for t in bond.trades | reverse %}
+      <div class="trade-row">
+        <div>
+          <div class="trade-bond">{{ t.quantity }} bonds</div>
+          <div class="trade-meta">{{ t.buyer[:16] }}… · {{ t.timestamp[:10] }}</div>
+        </div>
+        <div style="display:flex;gap:0.5rem;align-items:center">
+          <a href="{{ explorer }}/transactions/{{ t.payment_tx_hash }}" target="_blank" class="tx-hash">TX ↗</a>
+          <a href="/certificate/{{ t.payment_tx_hash }}" class="btn btn-sm btn-outline">Cert</a>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Right: Verify score + audit feed -->
+  <div>
+    <div class="card score-card">
+      <div class="section-title">VERIFICATION SCORE</div>
+      <div class="score-ring-wrap">
+        <svg class="score-ring" viewBox="0 0 120 120">
+          <circle cx="60" cy="60" r="50" fill="none" stroke="#1A2640" stroke-width="12"/>
+          <circle cx="60" cy="60" r="50" fill="none" stroke="#00D486" stroke-width="12"
+            stroke-dasharray="{{ (bond.verify_score / 100 * 314) | round }} 314"
+            stroke-dashoffset="78.5" stroke-linecap="round"/>
+        </svg>
+        <div class="score-center">
+          <span class="score-num">{{ bond.verify_score }}</span>
+          <span class="score-denom">/ 100</span>
+        </div>
+      </div>
+      <div class="score-label">
+        {% if bond.verify_score >= 90 %}High confidence{% elif bond.verify_score >= 75 %}Medium confidence{% else %}Low confidence{% endif %}
+      </div>
+      <div class="score-sub">Last checked from XRPL ledger metadata</div>
+    </div>
+
+    <div class="card" style="margin-top:1rem">
+      <div class="section-title" style="margin-bottom:1rem">CONTINUOUS AUDIT FEED</div>
+      <div class="audit-feed">
+        <div class="audit-row audit-ok">
+          <span class="audit-dot dot-green"></span>
+          <div>
+            <div class="audit-title">Use-of-proceeds verified on-chain</div>
+            <div class="audit-meta">MPT metadata · {{ bond.mpt_issuance_id[:20] }}…</div>
+          </div>
+        </div>
+        {% if meta.get('icma_pass') %}
+        <div class="audit-row audit-ok">
+          <span class="audit-dot dot-green"></span>
+          <div>
+            <div class="audit-title">ICMA Green Bond Principles — pass</div>
+            <div class="audit-meta">Framework check · embedded in token</div>
+          </div>
+        </div>
+        {% endif %}
+        {% if meta.get('eu_taxonomy_pass') %}
+        <div class="audit-row audit-ok">
+          <span class="audit-dot dot-green"></span>
+          <div>
+            <div class="audit-title">EU Taxonomy alignment — pass</div>
+            <div class="audit-meta">Framework check · embedded in token</div>
+          </div>
+        </div>
+        {% endif %}
+        <div class="audit-row audit-warn">
+          <span class="audit-dot dot-amber"></span>
+          <div>
+            <div class="audit-title">News scan — no adverse flags</div>
+            <div class="audit-meta">Simulated continuous scan · 1,204 sources</div>
+          </div>
+        </div>
+        <div class="audit-row audit-ok">
+          <span class="audit-dot dot-green"></span>
+          <div>
+            <div class="audit-title">Issuance TX validated on XRPL</div>
+            <a href="{{ explorer }}/transactions/{{ bond.issuance_tx_hash }}" target="_blank" class="audit-meta tx-hash">
+              {{ bond.issuance_tx_hash[:20] }}… ↗
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:1rem">
+      <a href="/marketplace" class="btn btn-primary full-width">Buy This Bond →</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

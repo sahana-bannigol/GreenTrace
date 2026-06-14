@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Portfolio</h1>
+    <p class="page-sub">Everything you hold, scored live from the XRPL ledger.</p>
+  </div>
+  <a href="/marketplace" class="btn btn-primary">Browse Marketplace →</a>
+</div>
+
+<!-- Stats bar -->
+<div class="stats-row">
+  <div class="stat-card">
+    <div class="stat-label">TOTAL BONDS ISSUED</div>
+    <div class="stat-value">{{ bonds | length }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">AVG VERIFY SCORE</div>
+    <div class="stat-value green">
+      {% if bonds %}
+        {{ (bonds | sum(attribute='verify_score') / bonds | length) | round(0) | int }}
+      {% else %}—{% endif %}
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">TOTAL TRADES</div>
+    <div class="stat-value">{% set tc = namespace(n=0) %}{% for b in bonds %}{% set tc.n = tc.n + (b.trades | length) %}{% endfor %}{{ tc.n }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">NETWORK</div>
+    <div class="stat-value" style="font-size:1rem">XRPL Testnet</div>
+  </div>
+</div>
+
+{% if bonds %}
+<!-- Bond table -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">Active Green Bonds</span>
+    <span class="badge badge-green">{{ bonds | length }} verified</span>
+  </div>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>ISSUER / NAME</th>
+        <th>TYPE</th>
+        <th>COUPON</th>
+        <th>MATURITY</th>
+        <th>SUPPLY</th>
+        <th>VERIFY</th>
+        <th>ACTION</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for bond in bonds %}
+      {% set meta = bond.metadata %}
+      <tr {% if bond.verify_score < 80 %}class="row-warn"{% endif %}>
+        <td>
+          <div class="bond-name">{{ meta.get('name', '—') }}</div>
+          <div class="bond-issuer">{{ meta.get('issuer_name', bond.issuer[:12] + '…') }}</div>
+        </td>
+        <td><span class="type-tag">{{ meta.get('use_of_proceeds', 'Green')[:18] }}</span></td>
+        <td class="mono">{{ meta.get('coupon', '—') }}%</td>
+        <td class="mono">{{ meta.get('maturity', '—') }}</td>
+        <td class="mono">{{ bond.get('outstanding_bonds', 0) | int }} / {{ bond.get('total_bonds', 0) }}</td>
+        <td>
+          <span class="verify-badge {% if bond.verify_score >= 90 %}verify-high{% elif bond.verify_score >= 75 %}verify-mid{% else %}verify-low{% endif %}">
+            ● {{ bond.verify_score }}
+          </span>
+        </td>
+        <td>
+          <a href="/bond/{{ bond.mpt_issuance_id }}" class="btn btn-sm">View</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Verification breakdown -->
+<div class="two-col">
+  <div class="card">
+    <div class="card-title" style="margin-bottom:1rem">Verification Mix</div>
+    {% set verified = bonds | selectattr('verify_score', 'ge', 80) | list | length %}
+    {% set review = bonds | selectattr('verify_score', 'ge', 60) | selectattr('verify_score', 'lt', 80) | list | length %}
+    {% set pending = bonds | length - verified - review %}
+    <div class="verify-row"><span class="dot-green"></span> Verified (80+): <strong>{{ verified }}</strong></div>
+    <div class="verify-row"><span class="dot-amber"></span> In Review (60–79): <strong>{{ review }}</strong></div>
+    <div class="verify-row"><span class="dot-red"></span> Pending (&lt;60): <strong>{{ pending }}</strong></div>
+    <div class="verify-bar-wrap" style="margin-top:1rem">
+      <div class="verify-bar">
+        {% if bonds %}
+        <div class="bar-green" style="width:{{ (verified / bonds|length * 100)|round }}%"></div>
+        <div class="bar-amber" style="width:{{ (review / bonds|length * 100)|round }}%"></div>
+        <div class="bar-red" style="width:{{ (pending / bonds|length * 100)|round }}%"></div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title" style="margin-bottom:1rem">Recent Trades</div>
+    {% set all_trades = [] %}
+    {% for bond in bonds %}{% for t in bond.trades %}{% set _ = all_trades.append({'bond': bond, 'trade': t}) %}{% endfor %}{% endfor %}
+    {% if all_trades %}
+      {% for item in all_trades[-5:] | reverse %}
+      <div class="trade-row">
+        <div>
+          <div class="trade-bond">{{ item.bond.metadata.get('ticker', '—') }}</div>
+          <div class="trade-meta">{{ item.trade.quantity }} bonds · {{ item.trade.buyer[:10] }}…</div>
+        </div>
+        <a href="/certificate/{{ item.trade.payment_tx_hash }}" class="btn btn-sm btn-outline">Cert</a>
+      </div>
+      {% endfor %}
+    {% else %}
+      <p class="muted">No trades yet. <a href="/marketplace">Buy a bond →</a></p>
+    {% endif %}
+  </div>
+</div>
+
+{% else %}
+<div class="empty-state">
+  <div class="empty-icon">⬡</div>
+  <h2>No bonds issued yet</h2>
+  <p>Create your first tokenized green bond on the XRP Ledger.</p>
+  <a href="/issuer" class="btn btn-primary">Issue First Bond →</a>
+</div>
+{% endif %}
+
+{% endblock %}

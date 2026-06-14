@@ -1,0 +1,614 @@
+{% extends "base.html" %}
+{% block title %}Marketplace{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Marketplace</h1>
+    <p class="page-sub">Green bonds require KPMG credential. Settlement ~4s on XRPL via escrow.</p>
+  </div>
+  <a href="/issuer" class="btn btn-outline">Issue Bond +</a>
+</div>
+
+<!-- ── Two-wallet credential demo ─────────────────────────────── -->
+<div class="two-col" style="margin-bottom:1.5rem">
+
+  <!-- Wallet A — Verified investor -->
+  <div class="card credential-card" id="cardWalletA">
+    <div class="credential-header">
+      <div>
+        <div class="card-title">Wallet A — Verified Investor</div>
+        <div class="muted" style="font-size:.82rem">Holds KPMG green bond credential · can buy</div>
+      </div>
+      <span class="cred-badge cred-none" id="credBadgeA">NO CREDENTIAL</span>
+    </div>
+
+    <button class="btn btn-outline full-width" id="btnGenA" onclick="generateWalletA()">
+      Generate Wallet A
+    </button>
+    <div id="infoA" class="wallet-box hidden" style="margin-top:.75rem">
+      <div class="wallet-row"><span class="wallet-label">ADDRESS</span><span id="addrA" class="mono">—</span></div>
+      <div class="wallet-row"><span class="wallet-label">BALANCE</span><span id="balA">—</span></div>
+    </div>
+
+    <button class="btn btn-primary full-width" id="btnCredA" onclick="getCredential()" style="margin-top:.75rem" disabled>
+      Get KPMG Credential (XLS-70)
+    </button>
+
+    <div id="credDetailA" class="cred-detail hidden">
+      <div class="cred-meta-row">
+        <span class="cred-key">Bond_Status</span><span class="cred-val green">Green_Verified</span>
+      </div>
+      <div class="cred-meta-row">
+        <span class="cred-key">Standard</span><span class="cred-val">EU_Green_Bond_Standard</span>
+      </div>
+      <div class="cred-meta-row">
+        <span class="cred-key">Verified_By</span><span class="cred-val">KPMG</span>
+      </div>
+      <div class="cred-meta-row">
+        <span class="cred-key">EU_Taxonomy</span><span class="cred-val green">Pass ✓</span>
+      </div>
+      <div class="cred-meta-row">
+        <span class="cred-key">ICMA</span><span class="cred-val green">Pass ✓</span>
+      </div>
+      <div style="margin-top:.5rem;font-size:.78rem;color:var(--muted)">
+        <a id="credTxLinkA" href="#" target="_blank" class="tx-hash">CredentialCreate ↗</a>
+        &nbsp;·&nbsp;
+        <a id="credAcceptLinkA" href="#" target="_blank" class="tx-hash">CredentialAccept ↗</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Wallet B — Unverified -->
+  <div class="card credential-card" id="cardWalletB">
+    <div class="credential-header">
+      <div>
+        <div class="card-title">Wallet B — Unverified Wallet</div>
+        <div class="muted" style="font-size:.82rem">No credential · will be rejected on purchase</div>
+      </div>
+      <span class="cred-badge cred-rejected">NO CREDENTIAL</span>
+    </div>
+
+    <button class="btn btn-outline full-width" id="btnGenB" onclick="generateWalletB()">
+      Generate Wallet B (Unverified)
+    </button>
+    <div id="infoB" class="wallet-box hidden" style="margin-top:.75rem">
+      <div class="wallet-row"><span class="wallet-label">ADDRESS</span><span id="addrB" class="mono">—</span></div>
+      <div class="wallet-row"><span class="wallet-label">BALANCE</span><span id="balB">—</span></div>
+    </div>
+
+    <div id="rejectedBanner" class="rejection-banner hidden">
+      <div class="rejection-icon">✕</div>
+      <div class="rejection-title">ACCESS DENIED</div>
+      <div class="rejection-msg">This wallet holds no KPMG green investor credential.<br>
+        Only credentialed investors may purchase bonds on GreenTrace.</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── My Wallet Portfolio ──────────────────────────────────────── -->
+<div id="portfolioPanel" class="card hidden" style="margin-bottom:1.5rem">
+  <div class="card-header">
+    <span class="card-title">My Wallet · Wallet A</span>
+    <button class="btn btn-sm btn-outline" onclick="refreshPortfolio()">↻ Refresh</button>
+  </div>
+
+  <!-- XRP balance row -->
+  <div class="xrp-row">
+    <div class="xrp-col">
+      <div class="xrp-label">XRP BALANCE</div>
+      <div class="xrp-value" id="portfolioXrp">—</div>
+    </div>
+    <div class="xrp-col" id="xrpChangeCol" style="display:none">
+      <div class="xrp-label">STARTED</div>
+      <div class="xrp-value xrp-start" id="portfolioXrpStart">—</div>
+    </div>
+    <div class="xrp-col" id="xrpSpentCol" style="display:none">
+      <div class="xrp-label">SPENT (escrow + fees)</div>
+      <div class="xrp-value xrp-spent" id="portfolioXrpSpent">—</div>
+    </div>
+  </div>
+  <!-- XRP drain bar -->
+  <div class="xrp-bar-wrap" id="xrpBarWrap" style="display:none">
+    <div class="xrp-bar-track">
+      <div class="xrp-bar-fill" id="xrpBarFill"></div>
+      <div class="xrp-bar-spent" id="xrpBarSpent"></div>
+    </div>
+    <div class="xrp-bar-labels">
+      <span class="xrp-label">0 XRP</span>
+      <span class="xrp-label" id="xrpBarMax">—</span>
+    </div>
+  </div>
+
+  <!-- Bond token holdings -->
+  <div id="holdingsSection" style="margin-top:1.25rem">
+    <div class="holdings-label">BOND TOKENS IN WALLET</div>
+    <div id="holdingsList" class="holdings-list">
+      <p class="muted" style="font-size:.85rem">No bond tokens yet — buy a bond above.</p>
+    </div>
+  </div>
+</div>
+
+{% if bonds %}
+<!-- Bond listing -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">Available Green Bonds</span>
+    <span class="badge badge-green">Credential required to buy</span>
+  </div>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>BOND</th>
+        <th>BID / ASK</th>
+        <th>YIELD</th>
+        <th>VERIFY</th>
+        <th>ACTION</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for bond in bonds %}
+      {% set meta = bond.metadata %}
+      {% set coupon = meta.get('coupon', '3.25') | float %}
+      {% set yield_val = (coupon + 0.16) | round(2) %}
+      <tr id="row-{{ bond.mpt_issuance_id }}" {% if bond.verify_score < 80 %}class="row-warn"{% endif %}>
+        <td>
+          <div class="bond-name">{{ meta.get('name', '—') }}</div>
+          <div class="bond-issuer">{{ meta.get('issuer_name', bond.issuer[:16] + '…') }} · {{ meta.get('coupon','?') }}%</div>
+          <div class="bond-isin mono">{{ meta.get('isin', '') }}</div>
+        </td>
+        <td class="mono">98.1 / 98.3</td>
+        <td class="mono">{{ yield_val }}%</td>
+        <td>
+          <span class="verify-badge {% if bond.verify_score >= 90 %}verify-high{% elif bond.verify_score >= 75 %}verify-mid{% else %}verify-low{% endif %}">
+            ● {{ bond.verify_score }}
+          </span>
+        </td>
+        <td>
+          <div class="action-btns">
+            <button class="btn btn-primary btn-sm"
+              onclick="openBuyModal('{{ bond.mpt_issuance_id }}', '{{ meta.get('name','Bond') }}', '{{ meta.get('coupon','?') }}', {{ bond.verify_score }})">
+              Buy
+            </button>
+            <a href="/bond/{{ bond.mpt_issuance_id }}" class="btn btn-sm btn-outline">Details</a>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div class="table-footer">
+    <span>Settlement <strong>~4s</strong> on XRPL</span>
+    <span>Network fee <strong>~$0.0002</strong></span>
+    <span>Trading <strong>24 / 7</strong></span>
+  </div>
+</div>
+
+{% else %}
+<div class="empty-state">
+  <div class="empty-icon">⬡</div>
+  <h2>No bonds available yet</h2>
+  <p>Issue the first green bond to populate the marketplace.</p>
+  <a href="/issuer" class="btn btn-primary">Issue First Bond →</a>
+</div>
+{% endif %}
+
+<!-- Buy Modal -->
+<div id="buyModal" class="modal hidden">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 class="modal-title" id="modalBondName">—</h2>
+      <button class="modal-close" onclick="closeBuyModal()">✕</button>
+    </div>
+
+    <div class="modal-meta">
+      <span>Coupon: <strong id="modalCoupon">—</strong>%</span>
+      <span>Verify: <strong id="modalVerify">—</strong></span>
+    </div>
+
+    <!-- Wallet selector -->
+    <div class="wallet-toggle">
+      <span class="wallet-toggle-label">Buy with:</span>
+      <div class="wallet-toggle-btns">
+        <button class="wtoggle-btn" id="wtoggleA" onclick="selectModalWallet('A')">
+          Wallet A
+        </button>
+        <button class="wtoggle-btn" id="wtoggleB" onclick="selectModalWallet('B')">
+          Wallet B
+        </button>
+      </div>
+      <span class="wallet-toggle-addr mono" id="modalWalletAddr">—</span>
+    </div>
+
+    <div class="modal-steps">
+      <div class="step active" id="stepIndicator">Select a wallet above</div>
+    </div>
+
+    <div id="credCheckBox" class="cred-check-box hidden">
+      <div class="cred-check-icon" id="credCheckIcon">…</div>
+      <div class="cred-check-msg" id="credCheckMsg"></div>
+    </div>
+
+    <div id="buyControls" class="hidden">
+      <div style="margin:.75rem 0">
+        <label class="form-label">Quantity (bonds)</label>
+        <input type="number" class="form-input" id="buyQuantity" value="1" min="1" max="1000" />
+      </div>
+      <div id="txLog" class="tx-log"></div>
+      <div id="buyActions">
+        <button class="btn btn-primary full-width" id="btnConfirmBuy" onclick="confirmBuy()">
+          🌿 Buy Bond (Escrow + MPT Transfer)
+        </button>
+      </div>
+    </div>
+
+    <div id="buySuccess" class="hidden">
+      <div class="success-banner">✓ Bond purchased and settled on XRPL</div>
+      <div id="txLinks" style="margin-top:1rem"></div>
+      <a id="certLink" href="#" class="btn btn-primary full-width" style="margin-top:.75rem">
+        📜 View Certificate
+      </a>
+    </div>
+
+    <div id="buyRejected" class="hidden">
+      <div class="rejection-banner" style="margin-top:1rem">
+        <div class="rejection-icon">✕</div>
+        <div class="rejection-title">TRANSACTION REJECTED</div>
+        <div class="rejection-msg" id="rejectedMsg">
+          This wallet has no KPMG green investor credential.<br>
+          <strong>XLS-70 credential gate enforced on-chain.</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+const EXPLORER = '{{ explorer }}';
+let currentMptId = null;
+let currentWallet = null; // 'A' or 'B' — set when user picks in modal
+
+// ── Portfolio refresh ─────────────────────────────────────────────
+async function refreshPortfolio() {
+  const address = localStorage.getItem('walletA_address');
+  if (!address) return;
+
+  const panel = document.getElementById('portfolioPanel');
+  panel.classList.remove('hidden');
+
+  try {
+    const res = await api(`/api/wallet/${address}/portfolio`);
+    const bal = parseFloat(res.balance_xrp);
+    const start = parseFloat(localStorage.getItem('walletA_initial_xrp') || '100');
+    const spent = Math.max(0, start - bal);
+
+    document.getElementById('portfolioXrp').textContent = bal.toFixed(6) + ' XRP';
+
+    if (spent > 0.0001) {
+      document.getElementById('portfolioXrpStart').textContent = start.toFixed(2) + ' XRP';
+      document.getElementById('portfolioXrpSpent').textContent = '− ' + spent.toFixed(6) + ' XRP';
+      document.getElementById('xrpChangeCol').style.display = '';
+      document.getElementById('xrpSpentCol').style.display = '';
+      // Drain bar
+      const pct = (bal / start) * 100;
+      document.getElementById('xrpBarFill').style.width = pct + '%';
+      document.getElementById('xrpBarSpent').style.width = (100 - pct) + '%';
+      document.getElementById('xrpBarMax').textContent = start.toFixed(0) + ' XRP';
+      document.getElementById('xrpBarWrap').style.display = '';
+    }
+
+    // Bond holdings
+    const list = document.getElementById('holdingsList');
+    if (res.holdings.length === 0) {
+      list.innerHTML = '<p class="muted" style="font-size:.85rem">No bond tokens yet — buy a bond above.</p>';
+    } else {
+      list.innerHTML = res.holdings.map(h => `
+        <div class="holding-card">
+          <div class="holding-left">
+            <div class="holding-icon">⬡</div>
+            <div>
+              <div class="holding-name">${h.bond_name}</div>
+              <div class="holding-meta">${h.issuer_name} · ${h.coupon}% coupon · matures ${h.maturity}</div>
+              <div class="holding-mpt mono">${h.mpt_issuance_id}</div>
+            </div>
+          </div>
+          <div class="holding-right">
+            <div class="holding-qty">${h.quantity}</div>
+            <div class="holding-qty-label">bonds</div>
+            <span class="verify-badge ${h.verify_score >= 90 ? 'verify-high' : h.verify_score >= 75 ? 'verify-mid' : 'verify-low'}" style="margin-top:.35rem">
+              ● ${h.verify_score}
+            </span>
+            <a href="${h.bond_url}" class="btn btn-sm btn-outline" style="margin-top:.4rem">View</a>
+          </div>
+        </div>
+      `).join('');
+    }
+  } catch(e) {
+    console.warn('Portfolio refresh failed', e);
+  }
+}
+
+// ── Wallet A (Verified) ───────────────────────────────────────────
+async function generateWalletA() {
+  const btn = document.getElementById('btnGenA');
+  btn.disabled = true; btn.textContent = 'Generating…';
+  try {
+    const res = await api('/api/wallet/create', 'POST', {});
+    const w = res.wallet;
+    localStorage.setItem('walletA_seed', w.seed);
+    localStorage.setItem('walletA_address', w.address);
+    localStorage.setItem('walletA_initial_xrp', w.balance_xrp);
+    document.getElementById('addrA').textContent = w.address;
+    document.getElementById('balA').textContent = w.balance_xrp + ' XRP';
+    document.getElementById('infoA').classList.remove('hidden');
+    document.getElementById('btnCredA').disabled = false;
+    btn.textContent = '✓ Wallet A Ready';
+    toast('Wallet A created · 100 XRP funded', 'success');
+    refreshPortfolio();
+  } catch(e) {
+    toast(e.message, 'error'); btn.disabled = false; btn.textContent = 'Generate Wallet A';
+  }
+}
+
+async function getCredential() {
+  const seed = localStorage.getItem('walletA_seed');
+  if (!seed) { toast('Generate Wallet A first', 'error'); return; }
+  const btn = document.getElementById('btnCredA');
+  btn.disabled = true; btn.textContent = 'Issuing XLS-70 credential… (~15s)';
+  try {
+    const res = await api('/api/credential/issue', 'POST', { buyer_seed: seed });
+    // Show credential detail panel
+    document.getElementById('credDetailA').classList.remove('hidden');
+    document.getElementById('credTxLinkA').href = `${EXPLORER}/transactions/${res.create_tx_hash}`;
+    document.getElementById('credAcceptLinkA').href = `${EXPLORER}/transactions/${res.accept_tx_hash}`;
+    document.getElementById('credBadgeA').textContent = '✓ KPMG VERIFIED';
+    document.getElementById('credBadgeA').className = 'cred-badge cred-verified';
+    document.getElementById('cardWalletA').classList.add('card-verified');
+    btn.textContent = '✓ Credential Active';
+    toast('KPMG credential issued and accepted on XRPL! ✓', 'success');
+  } catch(e) {
+    toast('Credential error: ' + e.message, 'error');
+    btn.disabled = false; btn.textContent = 'Get KPMG Credential (XLS-70)';
+  }
+}
+
+// ── Wallet B (Unverified) ─────────────────────────────────────────
+async function generateWalletB() {
+  const btn = document.getElementById('btnGenB');
+  btn.disabled = true; btn.textContent = 'Generating…';
+  try {
+    const res = await api('/api/wallet/create', 'POST', {});
+    const w = res.wallet;
+    localStorage.setItem('walletB_seed', w.seed);
+    localStorage.setItem('walletB_address', w.address);
+    document.getElementById('addrB').textContent = w.address;
+    document.getElementById('balB').textContent = w.balance_xrp + ' XRP';
+    document.getElementById('infoB').classList.remove('hidden');
+    btn.textContent = '✓ Wallet B Ready (Unverified)';
+    toast('Wallet B created · no credential will be issued', 'success');
+  } catch(e) {
+    toast(e.message, 'error'); btn.disabled = false; btn.textContent = 'Generate Wallet B (Unverified)';
+  }
+}
+
+// ── Buy modal ─────────────────────────────────────────────────────
+function resetModalBody() {
+  document.getElementById('txLog').innerHTML = '';
+  document.getElementById('buySuccess').classList.add('hidden');
+  document.getElementById('buyRejected').classList.add('hidden');
+  document.getElementById('buyControls').classList.add('hidden');
+  document.getElementById('credCheckBox').classList.add('hidden');
+  document.getElementById('stepIndicator').textContent = 'Select a wallet above';
+  document.getElementById('stepIndicator').className = 'step active';
+  if (document.getElementById('btnConfirmBuy')) {
+    document.getElementById('btnConfirmBuy').disabled = false;
+    document.getElementById('btnConfirmBuy').textContent = '🌿 Buy Bond (Escrow + MPT Transfer)';
+  }
+}
+
+function openBuyModal(mptId, name, coupon, verify) {
+  currentMptId = mptId;
+  currentWallet = null;
+
+  document.getElementById('modalBondName').textContent = name;
+  document.getElementById('modalCoupon').textContent = coupon;
+  document.getElementById('modalVerify').textContent = verify;
+  document.getElementById('modalWalletAddr').textContent = '—';
+
+  // Reset toggle buttons
+  document.getElementById('wtoggleA').classList.remove('active');
+  document.getElementById('wtoggleB').classList.remove('active');
+
+  // Pre-select whichever wallet was last used (if any generated)
+  const hasA = !!localStorage.getItem('walletA_address');
+  const hasB = !!localStorage.getItem('walletB_address');
+  if (hasA) {
+    selectModalWallet('A');
+  } else if (hasB) {
+    selectModalWallet('B');
+  } else {
+    resetModalBody();
+  }
+
+  document.getElementById('buyModal').classList.remove('hidden');
+}
+
+function selectModalWallet(wallet) {
+  currentWallet = wallet;
+
+  // Update toggle button styles
+  document.getElementById('wtoggleA').classList.toggle('active', wallet === 'A');
+  document.getElementById('wtoggleB').classList.toggle('active', wallet === 'B');
+
+  const addrKey = wallet === 'A' ? 'walletA_address' : 'walletB_address';
+  const address = localStorage.getItem(addrKey);
+  const label = wallet === 'A' ? 'Wallet A' : 'Wallet B';
+
+  resetModalBody();
+
+  if (!address) {
+    document.getElementById('stepIndicator').textContent = `Generate ${label} first`;
+    document.getElementById('stepIndicator').className = 'step error';
+    document.getElementById('modalWalletAddr').textContent = 'not generated';
+    return;
+  }
+
+  const short = address.slice(0, 10) + '…' + address.slice(-6);
+  document.getElementById('modalWalletAddr').textContent = short;
+
+  // Run on-chain credential check
+  document.getElementById('credCheckBox').classList.remove('hidden');
+  document.getElementById('credCheckIcon').textContent = '…';
+  document.getElementById('credCheckIcon').style.color = '';
+  document.getElementById('credCheckMsg').textContent = 'Checking XRPL credential…';
+  document.getElementById('stepIndicator').textContent = 'Checking credential on-chain…';
+  document.getElementById('stepIndicator').className = 'step active';
+
+  runCredentialCheck(wallet, address);
+}
+
+async function runCredentialCheck(wallet, address) {
+  try {
+    const res = await api('/api/credential/check', 'POST', { address });
+
+    if (res.has_credential) {
+      document.getElementById('credCheckIcon').textContent = '✓';
+      document.getElementById('credCheckIcon').style.color = 'var(--green)';
+      document.getElementById('credCheckMsg').innerHTML =
+        `<strong style="color:var(--green)">KPMG credential verified</strong><br>
+         ${wallet === 'A' ? 'Wallet A' : 'Wallet B'} is cleared to purchase green bonds.`;
+      document.getElementById('stepIndicator').textContent = 'Credential verified ✓ — ready to buy';
+      document.getElementById('stepIndicator').className = 'step success';
+      setTimeout(() => {
+        document.getElementById('credCheckBox').classList.add('hidden');
+        document.getElementById('buyControls').classList.remove('hidden');
+        document.getElementById('stepIndicator').textContent = 'Step 1/4: Authorize MPT receipt';
+        document.getElementById('stepIndicator').className = 'step active';
+      }, 900);
+    } else {
+      document.getElementById('credCheckIcon').textContent = '✕';
+      document.getElementById('credCheckIcon').style.color = '#FF4D4D';
+      document.getElementById('credCheckMsg').innerHTML =
+        `<strong style="color:#FF4D4D">No credential found</strong><br>
+         ${wallet === 'A' ? 'Wallet A' : 'Wallet B'} has no KPMG green bond credential.`;
+      document.getElementById('stepIndicator').textContent = 'Credential gate — access denied';
+      document.getElementById('stepIndicator').className = 'step error';
+      document.getElementById('rejectedMsg').innerHTML =
+        `<strong>${wallet === 'A' ? 'Wallet A' : 'Wallet B'}</strong> holds no KPMG green investor credential.<br>
+         <strong>XLS-70 credential gate enforced on-chain.</strong>`;
+      setTimeout(() => {
+        document.getElementById('credCheckBox').classList.add('hidden');
+        document.getElementById('buyRejected').classList.remove('hidden');
+      }, 1000);
+    }
+  } catch(e) {
+    document.getElementById('credCheckMsg').textContent = 'Check failed: ' + e.message;
+  }
+}
+
+function closeBuyModal() {
+  document.getElementById('buyModal').classList.add('hidden');
+}
+
+async function confirmBuy() {
+  const seedKey = currentWallet === 'A' ? 'walletA_seed' : 'walletB_seed';
+  const buyer_seed = localStorage.getItem(seedKey);
+  if (!buyer_seed) { toast('Generate a wallet first', 'error'); return; }
+
+  const quantity = parseInt(document.getElementById('buyQuantity').value) || 1;
+  const btn = document.getElementById('btnConfirmBuy');
+  btn.disabled = true;
+
+  const steps = [
+    'Step 2/4: Authorizing MPT receipt…',
+    'Step 3/4: Creating XRP escrow…',
+    'Step 4/4: Transferring green bond token…',
+  ];
+  let stepIdx = 0;
+  const stepEl = document.getElementById('stepIndicator');
+  stepEl.textContent = steps[0];
+
+  const stepTimer = setInterval(() => {
+    stepIdx = Math.min(stepIdx + 1, steps.length - 1);
+    stepEl.textContent = steps[stepIdx];
+    btn.textContent = steps[stepIdx];
+  }, 5000);
+
+  try {
+    const res = await api('/api/bond/buy', 'POST', {
+      buyer_seed,
+      mpt_issuance_id: currentMptId,
+      quantity,
+    });
+
+    clearInterval(stepTimer);
+    document.getElementById('buyControls').classList.add('hidden');
+    document.getElementById('buySuccess').classList.remove('hidden');
+    stepEl.textContent = '✓ All 4 steps complete — bond settled';
+    stepEl.className = 'step success';
+
+    document.getElementById('txLinks').innerHTML = `
+      <div class="tx-row"><span class="tx-step">AUTH</span><span class="tx-msg">MPTokenAuthorize</span>
+        <a href="${EXPLORER}/transactions/${res.auth_tx_hash}" target="_blank" class="tx-hash">${res.auth_tx_hash.slice(0,12)}… ↗</a></div>
+      <div class="tx-row"><span class="tx-step">ESCROW</span><span class="tx-msg">EscrowCreate</span>
+        <a href="${EXPLORER}/transactions/${res.escrow_create_tx_hash}" target="_blank" class="tx-hash">${res.escrow_create_tx_hash.slice(0,12)}… ↗</a></div>
+      <div class="tx-row"><span class="tx-step">SETTLE</span><span class="tx-msg">EscrowFinish</span>
+        <a href="${EXPLORER}/transactions/${res.escrow_finish_tx_hash}" target="_blank" class="tx-hash">${res.escrow_finish_tx_hash.slice(0,12)}… ↗</a></div>
+      <div class="tx-row"><span class="tx-step">BOND</span><span class="tx-msg">MPT Payment</span>
+        <a href="${EXPLORER}/transactions/${res.payment_tx_hash}" target="_blank" class="tx-hash">${res.payment_tx_hash.slice(0,12)}… ↗</a></div>
+    `;
+    document.getElementById('certLink').href = `/certificate/${res.payment_tx_hash}`;
+    toast('Bond purchased and settled on XRPL! 🎉', 'success');
+    setTimeout(refreshPortfolio, 1500);
+  } catch(e) {
+    clearInterval(stepTimer);
+    const msg = e.message || '';
+    if (msg.includes('CREDENTIAL_REQUIRED')) {
+      stepEl.textContent = '✕ Credential gate — access denied';
+      stepEl.className = 'step error';
+      document.getElementById('buyControls').classList.add('hidden');
+      document.getElementById('buyRejected').classList.remove('hidden');
+      toast('Rejected: no green credential on this wallet', 'error');
+    } else {
+      stepEl.textContent = 'Error — see toast';
+      stepEl.className = 'step error';
+      toast('Purchase failed: ' + msg, 'error');
+      btn.disabled = false;
+      btn.textContent = '🌿 Buy Bond';
+    }
+  }
+}
+
+// ── Restore wallets from localStorage on load ─────────────────────
+window.addEventListener('load', () => {
+  const addrA = localStorage.getItem('walletA_address');
+  const seedA = localStorage.getItem('walletA_seed');
+  if (addrA && seedA) {
+    document.getElementById('addrA').textContent = addrA;
+    document.getElementById('infoA').classList.remove('hidden');
+    document.getElementById('btnCredA').disabled = false;
+    document.getElementById('btnGenA').textContent = '✓ Wallet A Ready';
+    // Restore credential badge and portfolio
+    api('/api/credential/check', 'POST', { address: addrA }).then(r => {
+      if (r.has_credential) {
+        document.getElementById('credBadgeA').textContent = '✓ KPMG VERIFIED';
+        document.getElementById('credBadgeA').className = 'cred-badge cred-verified';
+        document.getElementById('cardWalletA').classList.add('card-verified');
+        document.getElementById('credDetailA').classList.remove('hidden');
+        document.getElementById('btnCredA').textContent = '✓ Credential Active';
+      }
+    }).catch(() => {});
+    refreshPortfolio();
+  }
+  const addrB = localStorage.getItem('walletB_address');
+  if (addrB) {
+    document.getElementById('addrB').textContent = addrB;
+    document.getElementById('infoB').classList.remove('hidden');
+    document.getElementById('btnGenB').textContent = '✓ Wallet B Ready (Unverified)';
+  }
+});
+</script>
+{% endblock %}

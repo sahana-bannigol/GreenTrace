@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}Certificate · {{ bond.metadata.get('name','Bond') }}{% endblock %}
+{% block content %}
+
+{% set meta = bond.metadata %}
+
+<div class="page-header">
+  <div>
+    <a href="/marketplace" class="back-link">← Back</a>
+    <h1 class="page-title">Green Bond Certificate</h1>
+  </div>
+  <button class="btn btn-outline" onclick="window.print()">⬇ Print / Save PDF</button>
+</div>
+
+<div class="certificate" id="cert">
+  <!-- Header -->
+  <div class="cert-header">
+    <div class="cert-brand">
+      <span class="nav-logo" style="font-size:2rem">⬡</span>
+      <span style="font-size:1.5rem;font-weight:700;color:white">GreenTrace</span>
+    </div>
+    <div class="cert-badge">
+      <div class="dot-green" style="width:10px;height:10px;border-radius:50%;background:#00D486;display:inline-block"></div>
+      VERIFIED GREEN BOND
+    </div>
+  </div>
+
+  <!-- Bond title -->
+  <div class="cert-body">
+    <div class="cert-title">{{ meta.get('name', '—') }}</div>
+    <div class="cert-subtitle">ISIN {{ meta.get('isin', 'N/A') }} · {{ meta.get('issuer_name', bond.issuer) }}</div>
+
+    <!-- Key figures -->
+    <div class="cert-stats">
+      <div class="cert-stat">
+        <div class="cert-stat-label">BONDS ACQUIRED</div>
+        <div class="cert-stat-val">{{ trade.quantity }}</div>
+      </div>
+      <div class="cert-stat">
+        <div class="cert-stat-label">COUPON</div>
+        <div class="cert-stat-val">{{ meta.get('coupon', '—') }}%</div>
+      </div>
+      <div class="cert-stat">
+        <div class="cert-stat-label">MATURITY</div>
+        <div class="cert-stat-val">{{ meta.get('maturity', '—') }}</div>
+      </div>
+      <div class="cert-stat">
+        <div class="cert-stat-label">VERIFY SCORE</div>
+        <div class="cert-stat-val green">{{ bond.verify_score }} / 100</div>
+      </div>
+    </div>
+
+    <!-- Framework badges -->
+    <div class="cert-section">
+      <div class="cert-section-title">GREEN FRAMEWORK COMPLIANCE</div>
+      <div class="cert-fw-row">
+        {% if meta.get('icma_pass') %}<span class="fw-badge">✓ ICMA GBP</span>{% endif %}
+        {% if meta.get('eu_taxonomy_pass') %}<span class="fw-badge">✓ EU Taxonomy</span>{% endif %}
+        {% if meta.get('climate_bonds_pass') %}<span class="fw-badge">✓ Climate Bonds</span>{% endif %}
+        <span class="fw-badge">✓ Use-of-proceeds Live</span>
+      </div>
+    </div>
+
+    <!-- On-chain proof -->
+    <div class="cert-section">
+      <div class="cert-section-title">ON-CHAIN PROOF (XRPL Testnet)</div>
+      <table class="cert-table">
+        <tr>
+          <td class="cert-td-label">Payment TX Hash</td>
+          <td class="cert-td-val mono">
+            <a href="{{ explorer }}/transactions/{{ tx_hash }}" target="_blank">{{ tx_hash }}</a>
+          </td>
+        </tr>
+        <tr>
+          <td class="cert-td-label">MPT Issuance ID</td>
+          <td class="cert-td-val mono">{{ bond.mpt_issuance_id }}</td>
+        </tr>
+        <tr>
+          <td class="cert-td-label">Escrow Create TX</td>
+          <td class="cert-td-val mono">
+            <a href="{{ explorer }}/transactions/{{ trade.escrow_create_tx_hash }}" target="_blank">{{ trade.escrow_create_tx_hash }}</a>
+          </td>
+        </tr>
+        <tr>
+          <td class="cert-td-label">Escrow Finish TX</td>
+          <td class="cert-td-val mono">
+            <a href="{{ explorer }}/transactions/{{ trade.escrow_finish_tx_hash }}" target="_blank">{{ trade.escrow_finish_tx_hash }}</a>
+          </td>
+        </tr>
+        <tr>
+          <td class="cert-td-label">Buyer Address</td>
+          <td class="cert-td-val mono">{{ trade.buyer }}</td>
+        </tr>
+        <tr>
+          <td class="cert-td-label">Issuance Date</td>
+          <td class="cert-td-val">{{ trade.timestamp[:10] }}</td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- Credential hash -->
+    <div class="cert-section">
+      <div class="cert-section-title">GREEN CREDENTIAL (XLS-70 Compatible)</div>
+      <div class="cert-credential">
+        <div class="cred-row">
+          <span class="cred-label">TYPE</span>
+          <span class="cred-val">{{ credential.credential_type }}</span>
+        </div>
+        <div class="cred-row">
+          <span class="cred-label">STATUS</span>
+          <span class="cred-val green">{{ credential.status }}</span>
+        </div>
+        <div class="cred-row">
+          <span class="cred-label">FRAMEWORKS</span>
+          <span class="cred-val">{{ credential.frameworks_passed | join(', ') }}</span>
+        </div>
+        <div class="cred-row">
+          <span class="cred-label">CREDENTIAL HASH</span>
+          <span class="cred-val mono" style="font-size:0.75rem;word-break:break-all">{{ credential.credential_hash }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="cert-footer">
+    <span>Issued by GreenTrace · Ripple Treasury Hackathon 2026</span>
+    <span>Verified on XRP Ledger Testnet</span>
+    <span>{{ trade.timestamp[:10] }}</span>
+  </div>
+</div>
+
+<!-- Action links below certificate -->
+<div style="display:flex;gap:1rem;margin-top:1.5rem;justify-content:center">
+  <a href="{{ explorer }}/transactions/{{ tx_hash }}" target="_blank" class="btn btn-outline">
+    View TX on XRPL Explorer ↗
+  </a>
+  <a href="/marketplace" class="btn btn-primary">Back to Marketplace</a>
+</div>
+
+{% endblock %}
